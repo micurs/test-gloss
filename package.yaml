@@ -1,0 +1,49 @@
+name:                test-gloss
+version:             0.1.0.0
+github:              "micurs/test-gloss"
+license:             BSD3
+author:              "Michele Ursino"
+maintainer:          "mursino@linkedin.com"
+copyright:           "2020 Michele Ursino"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/githubuser/test-gloss#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- gloss >= 1.13
+
+library:
+  source-dirs: src
+
+executables:
+  test-gloss-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - test-gloss
+
+tests:
+  test-gloss-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - test-gloss
