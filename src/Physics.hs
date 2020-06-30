@@ -20,7 +20,7 @@ data Particle = Particle
 data ParticleSys = ParticleSys [Particle] deriving Show
 
 gravity :: (Float, Float)
-gravity = (0, -98.8)
+gravity = (0, -100.0)
 
 friction :: Velocity -> Velocity
 friction (vx, vy) =
@@ -68,4 +68,4 @@ bounceLeft sceneLeft r ((vx, vy), (px, py)) =
     else
       ( (vx, vy), (px, py))
   where
-    pbx = px - r 
+    pbx = px - r
