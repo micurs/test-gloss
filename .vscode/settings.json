@@ -1,5 +1,8 @@
 {
   "ghcSimple.replCommand": "stack ghci",
   "files.autoSave": "afterDelay",
-  "files.autoSaveDelay": 2000
+  "files.autoSaveDelay": 2000,
+  "cSpell.words": [
+    "foldl"
+  ]
 }

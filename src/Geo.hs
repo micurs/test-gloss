@@ -19,7 +19,7 @@ data Vector2D = V Double Double deriving Show
 data UnitVector2D = UV Double Double deriving Show
 data Point2D = P Double Double deriving Show
 
-data Frame = FR Point2D UnitVector2D UnitVector2D
+data Frame = FR Point2D UnitVector2D UnitVector2D deriving Show
 
 zeroPoint :: Point2D
 zeroPoint = P 0.0 0.0
@@ -45,6 +45,23 @@ pointPlusVector (P x y) (V i j) = P (x+i) (y+j)
 
 vectorPlusVector :: Vector2D -> Vector2D -> Vector2D
 vectorPlusVector (V i1 j1) (V i2 j2) = V (i1+i2) (j1+j2)
+
+point2DFromMatrix :: Matrix Double -> Point2D
+point2DFromMatrix m = (P ((at m (1, 1))/(at m (3, 1))) ((at m (2, 1))/(at m (3, 1))) )
+
+vector2DFromMatrix :: Matrix Double -> Vector2D
+vector2DFromMatrix m = (V (at m (1, 1)) (at m (2, 1)) )
+
+unitVector2DFromMatrix :: Matrix Double -> UnitVector2D
+unitVector2DFromMatrix m = unitVector (V (at m (1, 1)) (at m (2, 1)) )
+
+matrixFromFrame :: Frame -> Matrix Double
+matrixFromFrame (FR (P ox oy) (UV ix iy) (UV jx jy))
+    = fromList [ [ ix,  jx, ox]
+               , [ iy,  jy, oy]
+               , [0.0, 0.0, 1.0]
+               ]
+
 
 -- Dot Product entities : Vector2D and UnitVector2D
 
@@ -79,23 +96,28 @@ instance Coordinate Point2D where
   toPoint (P x y) = (realToFrac x, realToFrac y)
   x (P x _) = x
   y (P _ y) = y
-  geoMap (FR (P ox oy) (UV ix iy) (UV jx jy)) (P x y) =
-    P (ix*x + jx*y + ox) (iy*x + jx*y + oy)
-
+  geoMap frame (P x y) = (point2DFromMatrix $ times m v)
+    where
+      m = matrixFromFrame frame
+      v = fromList [ [x], [y], [1]]
 
 instance Coordinate Vector2D where
   toPoint (V x y) = (realToFrac x, realToFrac y)
   x (V x _) = x
   y (V _ y) = y
-  geoMap (FR (P ox oy) (UV ix iy) (UV jx jy)) (V x y) =
-    V (ix*x + jx*y + ox) (iy*x + jx*y + oy)
+  geoMap frame (V x y) = (vector2DFromMatrix $ times m v)
+    where
+      m = matrixFromFrame frame
+      v = fromList [[x], [y], [0]]
 
 instance Coordinate UnitVector2D where
   toPoint (UV x y) = (realToFrac x, realToFrac y)
   x (UV x _) = x
   y (UV _ y) = y
-  geoMap (FR (P ox oy) (UV ix iy) (UV jx jy)) (UV x y) =
-    unitVector (V (ix*x + jx*y + ox) (iy*x + jx*y + oy))
+  geoMap frame (UV x y) = (unitVector2DFromMatrix $ times m v)
+    where
+      m = matrixFromFrame frame
+      v = fromList [[x], [y], [0]]
 
 
 geoMapCouple :: Coordinate a => Coordinate b => Frame -> (a,b) -> (a,b)
@@ -104,9 +126,9 @@ geoMapCouple frame (a,b) = ((geoMap frame a), (geoMap frame b))
 invert :: Frame -> Maybe Frame
 invert (FR (P ox oy) (UV ix iy) (UV jx jy)) =
     case mm of
-      Just m -> Just (FR (homPoint $ col 2 m)
-                         (homUnitVector $ col 0 m)
-                         (homUnitVector $ col 1 m))
+      Just m -> Just (FR (homPoint $ col 3 m)
+                         (homUnitVector $ col 1 m)
+                         (homUnitVector $ col 2 m))
       Nothing -> Nothing
   where
     mm = inv $ fromList
