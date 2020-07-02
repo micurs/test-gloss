@@ -3,22 +3,23 @@ module Geo
   , Point2D(P)
   , Coordinate(..)
   , UnitVector2D
+  , Frame(..)
   , Dottable(..)
   , pointPlusVector
   , vectorPlusVector
   , unitVector
+  , geoMapCouple
+  , invert
   ) where
 
 import Graphics.Gloss
+import Numeric.Matrix
 
-data Vector2D = V Float Float
-data UnitVector2D = UV Float Float
-data Point2D = P Float Float
+data Vector2D = V Double Double deriving Show
+data UnitVector2D = UV Double Double deriving Show
+data Point2D = P Double Double deriving Show
 
-data HalfPlane2D = HP
-  { normal :: UnitVector2D
-  , position :: Point2D
-  }
+data Frame = FR Point2D UnitVector2D UnitVector2D
 
 zeroPoint :: Point2D
 zeroPoint = P 0.0 0.0
@@ -27,6 +28,15 @@ unitVector :: Vector2D -> UnitVector2D
 unitVector (V i j) = UV (i/l) (j/l)
   where
     l = sqrt $ i*i + j*j
+
+homPoint :: [Double] -> Point2D
+homPoint [x,y,k] = P (x/k) (y/k)
+
+homVector :: [Double] -> Vector2D
+homVector [x,y,_] = V x y
+
+homUnitVector:: [Double] -> UnitVector2D
+homUnitVector [x,y,_] = UV x y
 
 -- Mixed Operations
 
@@ -39,9 +49,9 @@ vectorPlusVector (V i1 j1) (V i2 j2) = V (i1+i2) (j1+j2)
 -- Dot Product entities : Vector2D and UnitVector2D
 
 class Dottable a where
-  dot :: a -> a -> Float
-  scalarDot :: Float -> a -> Vector2D
-  angle :: a -> a -> Float
+  dot :: a -> a -> Double
+  scalarDot :: Double -> a -> Vector2D
+  angle :: a -> a -> Double
 
 instance Dottable Vector2D where
   dot (V i1 j1) (V i2 j2) = (i1*i2)+(j1+j2)
@@ -61,32 +71,46 @@ instance Dottable UnitVector2D where
 
 class Coordinate a where
   toPoint :: a -> Point
-  x :: a -> Float
-  y :: a -> Float
+  x :: a -> Double
+  y :: a -> Double
+  geoMap :: Frame -> a -> a
 
 instance Coordinate Point2D where
-  toPoint (P x y) = (x,y)
+  toPoint (P x y) = (realToFrac x, realToFrac y)
   x (P x _) = x
   y (P _ y) = y
+  geoMap (FR (P ox oy) (UV ix iy) (UV jx jy)) (P x y) =
+    P (ix*x + jx*y + ox) (iy*x + jx*y + oy)
+
 
 instance Coordinate Vector2D where
-  toPoint (V x y) = (x,y)
+  toPoint (V x y) = (realToFrac x, realToFrac y)
   x (V x _) = x
   y (V _ y) = y
+  geoMap (FR (P ox oy) (UV ix iy) (UV jx jy)) (V x y) =
+    V (ix*x + jx*y + ox) (iy*x + jx*y + oy)
 
 instance Coordinate UnitVector2D where
-  toPoint (UV x y) = (x,y)
+  toPoint (UV x y) = (realToFrac x, realToFrac y)
   x (UV x _) = x
   y (UV _ y) = y
+  geoMap (FR (P ox oy) (UV ix iy) (UV jx jy)) (UV x y) =
+    unitVector (V (ix*x + jx*y + ox) (iy*x + jx*y + oy))
 
 
--- Build a half plane (empty, full) using a distance (from 0)
--- and a vector indicating the perpendicular to the separation line
--- the vector point in the direction of empty
-halfPlane2D :: Float -> UnitVector2D -> HalfPlane2D
-halfPlane2D w (UV i j) = HP
-  { normal = UV i j
-  , position = pointPlusVector zeroPoint $ scalarDot w (UV i j)
-  }
+geoMapCouple :: Coordinate a => Coordinate b => Frame -> (a,b) -> (a,b)
+geoMapCouple frame (a,b) = ((geoMap frame a), (geoMap frame b))
 
-
+invert :: Frame -> Maybe Frame
+invert (FR (P ox oy) (UV ix iy) (UV jx jy)) =
+    case mm of
+      Just m -> Just (FR (homPoint $ col 2 m)
+                         (homUnitVector $ col 0 m)
+                         (homUnitVector $ col 1 m))
+      Nothing -> Nothing
+  where
+    mm = inv $ fromList
+        [ [ ix,  jx,  ox]
+        , [ iy,  jy,  oy]
+        , [0.0, 0.0, 1.0]
+        ]

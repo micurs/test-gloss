@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: bed-and-breakfast-0.5@sha256:02b7f3f18b23f97cf70782f09bed746ecad751f331121a3a43fe97880c25fbce,1597
+    pantry-tree:
+      size: 563
+      sha256: 731aaa8e4729d534bf1409844ae5235b0963576a5def565fde4877a328bb30fb
+  original:
+    hackage: bed-and-breakfast-0.5@sha256:02b7f3f18b23f97cf70782f09bed746ecad751f331121a3a43fe97880c25fbce,1597
 snapshots:
 - completed:
     size: 523541

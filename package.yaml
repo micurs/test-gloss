@@ -1,5 +1,5 @@
 name:                test-gloss
-version:             0.1.0.0
+version:             0.1.1.0
 github:              "micurs/test-gloss"
 license:             BSD3
 author:              "Michele Ursino"
@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - gloss >= 1.13
+- bed-and-breakfast >= 0.5
 
 library:
   source-dirs: src

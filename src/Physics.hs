@@ -1,71 +1,89 @@
 module Physics
   ( Particle (..)
   , ParticleSys (..)
-  , Velocity, applyGravity
-  , bounceFloor
+  , Velocity
+  , applyGravity
+  , bounce
   , bounceLeft
   , bounceRight
   ) where
 
 import Graphics.Gloss
+import Geo
 
-type Velocity = (Float, Float)
+type Velocity = Vector2D
 
 data Particle = Particle
-  { position :: Point
+  { position :: Point2D
   , velocity :: Velocity
-  , mass :: Float
+  , mass :: Double
   } deriving Show
 
 data ParticleSys = ParticleSys [Particle] deriving Show
 
-gravity :: (Float, Float)
+gravity :: (Double, Double)
 gravity = (0, -100.0)
 
 friction :: Velocity -> Velocity
-friction (vx, vy) =
-    ( if (abs vx)> 1 then vx*friction else 0
-    , if (abs vy)> 1 then vy*friction else 0
-    )
+friction (V vx vy) =
+    V ( if (abs vx)> 1 then vx*friction else 0)
+      ( if (abs vy)> 1 then vy*friction else 0)
   where
     friction = 0.9
 
 -- dt: seconds , mass, currentVelocity -> newVelocity
-applyGravity :: Float -> Velocity -> Velocity
-applyGravity dt (vx, vy) = (vx + dvx, vy + dvy)
+applyGravity :: Double -> Velocity -> Velocity
+applyGravity dt (V vx vy) = V (vx + dvx) (vy + dvy)
   where
     (dvx, dvy) = (fst gravity * dt, snd gravity * dt)
 
+
+-- Bounce to 0
+-- To use this function transform incoming (Velocity, Point) to
+-- the wall reference frame with the Zero on the wall,
+-- the X axis along the wall
+-- and the Y axis perpendicular and coming out of the wall
+bounce :: Double -> (Velocity, Point2D) -> (Velocity, Point2D)
+bounce r ((V vx vy), (P px py)) =
+    if vy<0 && pby < 0 then
+      ( friction (V vx (-vy))  -- New velocity
+      , P px (py - 2 * pby)  -- New position
+      )
+    else
+      ( (V vx vy), (P px py))
+  where
+    pby = py - r
+
 -- Bottom floor bouncing
--- floor Float : the Y coordinate of the floor
+-- floor Double : the Y coordinate of the floor
 -- The radius of the circle bounding
-bounceFloor :: Float -> Float -> (Velocity, Point) -> (Velocity, Point)
-bounceFloor sceneFloor r ((vx, vy), (px, py)) =
+bounceFloor :: Double -> Double -> (Velocity, Point2D) -> (Velocity, Point2D)
+bounceFloor sceneFloor r ((V vx vy), (P px py)) =
     if vy<0 && pby < sceneFloor then
       let dy = abs $ pby - sceneFloor
-      in ( friction (vx, -vy), (px, py + 2 * dy))  -- Specular bounce
+      in ( friction (V vx (-vy)), (P px (py + 2 * dy)))  -- Specular bounce
     else
-      ( (vx, vy), (px, py))
+      ( (V vx vy), (P px py))
   where
     pby = py - r
 
 
-bounceRight :: Float -> Float -> (Velocity, Point) -> (Velocity, Point)
-bounceRight sceneRight r ((vx, vy), (px, py)) =
+bounceRight :: Double -> Double -> (Velocity, Point2D) -> (Velocity, Point2D)
+bounceRight sceneRight r ((V vx vy), (P px py)) =
     if vx>0 && pbx > sceneRight then
       let dx = abs $ pbx - sceneRight
-      in ( friction (-vx, vy), (px - 2 * dx, py))  -- Specular bounce
+      in ( friction (V (-vx) vy), (P (px - 2 * dx) py))  -- Specular bounce
     else
-      ( (vx, vy), (px, py))
+      ( (V vx vy), (P px py))
   where
     pbx = px + r
 
-bounceLeft :: Float -> Float -> (Velocity, Point) -> (Velocity, Point)
-bounceLeft sceneLeft r ((vx, vy), (px, py)) =
+bounceLeft :: Double -> Double -> (Velocity, Point2D) -> (Velocity, Point2D)
+bounceLeft sceneLeft r ((V vx vy), (P px py)) =
     if vx<0 && pbx < sceneLeft then
       let dx = abs $ pbx - sceneLeft
-      in ( friction (-vx, vy), (px + 2 * dx, py))  -- Specular bounce
+      in ( friction (V (-vx) vy), (P (px + 2 * dx) py))  -- Specular bounce
     else
-      ( (vx, vy), (px, py))
+      ( (V vx vy), (P px py))
   where
     pbx = px - r
