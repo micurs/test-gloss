@@ -4,10 +4,13 @@ module Physics
   , Velocity
   , applyGravity
   , bounce
+  , addParticle2Sys
+  , module Physics.Wall
   ) where
 
 import Graphics.Gloss
 import Geo
+import Physics.Wall
 
 type Velocity = Vector2D
 
@@ -19,8 +22,11 @@ data Particle = Particle
 
 data ParticleSys = ParticleSys [Particle] deriving Show
 
+addParticle2Sys :: ParticleSys -> Particle -> ParticleSys
+addParticle2Sys (ParticleSys pl) p = ParticleSys (p : pl)
+
 gravity :: (Double, Double)
-gravity = (0, -100.0)
+gravity = (0, -98.0)
 
 friction :: Velocity -> Velocity
 friction (V vx vy) =
@@ -41,7 +47,7 @@ frictionY (V vx vy) =
     V ( if (abs vx)> 0.5 then vx*0.999 else 0)
       ( if (abs vy)> 0.5 then vy*friction else 0)
   where
-    friction = 0.85
+    friction = 0.9
 
 
 -- dt: seconds , mass, currentVelocity -> newVelocity

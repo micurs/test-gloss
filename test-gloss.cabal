@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5e081e5c86a925d0b86264325e03cc9d22650770f153f813501f9e523c104f8c
+-- hash: 4161831fff596df6d190a9473130a9625a075abac81f43af58e86287160f50cb
 
 name:           test-gloss
 version:        0.1.1.0
@@ -30,6 +30,7 @@ library
       Geo
       Lib
       Physics
+      Physics.Wall
   other-modules:
       Paths_test_gloss
   hs-source-dirs:
@@ -38,6 +39,7 @@ library
       base >=4.7 && <5
     , bed-and-breakfast >=0.5
     , gloss >=1.13
+    , random
   default-language: Haskell2010
 
 executable test-gloss-exe
@@ -51,6 +53,7 @@ executable test-gloss-exe
       base >=4.7 && <5
     , bed-and-breakfast >=0.5
     , gloss >=1.13
+    , random
     , test-gloss
   default-language: Haskell2010
 
@@ -66,5 +69,6 @@ test-suite test-gloss-test
       base >=4.7 && <5
     , bed-and-breakfast >=0.5
     , gloss >=1.13
+    , random
     , test-gloss
   default-language: Haskell2010
