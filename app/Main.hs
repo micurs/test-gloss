@@ -45,8 +45,8 @@ windowDisplay = InWindow "Window" (1000, 1000) (0, 0)
 
 -- Walls to be added into our scene
 
-leftWall = wall 0.1 1000 (-(pi/2)) (P (-480) 0)
-rightWall = wall 0.1 1000 (pi/2) (P 480 0)
+leftWall = wall (-0.2) 1000 (-(pi/2)) (P (-480) 0)
+rightWall = wall (-0.2) 1000 (pi/2) (P 480 0)
 floorWall = wall 0.2 1000 0 (P 0 (-460))
 ceilWall = wall 0.05 1000 pi (P 0 490)
 
@@ -96,8 +96,8 @@ initialState g = Game
 
 
 -- Computes the bounce against a Wall of a circle of a given radius and velocity and position
-bounceWall :: Wall -> Double -> (Velocity, Point2D, Point2D) -> (Velocity, Point2D, Point2D)
-bounceWall w r vpp =
+bounceWall :: Double -> (Velocity, Point2D, Point2D) -> Wall -> (Velocity, Point2D, Point2D)
+bounceWall r vpp w =
     geoMapTriple fromWall bouncedP
   where
     fromWall = wallFrame w
@@ -159,9 +159,9 @@ input (EventKey (SpecialKey KeyUp) Down _ _) game =
                       }
   where
     c = (counter game) + 1
-    ((vx: velXs), (vy:velYs)) = randomVels game
+    ((vx: velXs), (vy:velYs)) = randomVels game -- Get the first of the infinite lists of random values
     newGame = game
-      { randomVels = (velXs, velYs)
+      { randomVels = (velXs, velYs) -- Update the infinite list with the queues of the original lists!
       , counter = c
       }
 
@@ -172,8 +172,8 @@ input _ game = game
 
 -- SIMULATION step
 
-updateParticle :: Float -> [Wall] -> Particle -> Particle
-updateParticle tm (firstWall : otherWalls) particle = particle
+updateParticle :: Double -> [Wall] -> Particle -> Particle
+updateParticle time (firstWall : otherWalls) particle = particle
   { position = fPos
   , velocity = newVel
   , life = (life particle) - 1
@@ -182,17 +182,13 @@ updateParticle tm (firstWall : otherWalls) particle = particle
     r = mass particle / 2
     pos = position particle
     vel = velocity particle
-    time = float2Double tm
-    newVelPos = (vel, pos, movePos time pos vel)
+    newVelPos = (vel, pos, movePos time vel pos)
     (fVel, _, fPos) = foldl
-        (\vp wall -> bounceWall wall r vp)
-        (bounceWall firstWall r newVelPos)
+        (bounceWall r)
+        (bounceWall r newVelPos firstWall)
         otherWalls
-    newVel = applyGravity (float2Double tm) fVel
+    newVel = applyGravity time fVel
 
-movePos :: Double -> Point2D -> Velocity -> Point2D
-movePos tm (P px py) (V vx vy) =
-  P (px + vx * tm)  (py + vy * tm)
 
 update :: Float -> GameState -> GameState
 update tm game
@@ -200,11 +196,12 @@ update tm game
   | otherwise = game {
       particles = ParticleSys
         $ filter (\p -> life p > 0)
-        $ map (updateParticle tm walls) pl
+        $ map (updateParticle time walls) pl
     }
   where
     walls = getWalls game
     pl = getParticles game
+    time = float2Double tm
 
 -- MAIN game setup
 

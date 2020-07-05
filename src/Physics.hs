@@ -5,6 +5,7 @@ module Physics
   , applyGravity
   , bounce
   , addParticle2Sys
+  , movePos
   , module Physics.Wall
   ) where
 
@@ -28,6 +29,10 @@ addParticle2Sys (ParticleSys pl) p = ParticleSys (p : pl)
 
 gravity :: (Double, Double)
 gravity = (0, -98.0)
+
+movePos :: Double -> Velocity -> Point2D -> Point2D
+movePos tm (V vx vy) (P px py) =
+  P (px + vx * tm)  (py + vy * tm)
 
 friction :: Velocity -> Velocity
 friction (V vx vy) =
