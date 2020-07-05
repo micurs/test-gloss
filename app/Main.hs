@@ -41,13 +41,13 @@ sceneRight :: Double
 sceneRight = 480
 
 windowDisplay :: Display
-windowDisplay = InWindow "Window" (1000, 2000) (0, 0)
+windowDisplay = InWindow "Window" (1000, 1000) (0, 0)
 
 -- Walls to be added into our scene
 
 leftWall = wall 0.1 1000 (-(pi/2)) (P (-480) 0)
 rightWall = wall 0.1 1000 (pi/2) (P 480 0)
-floorWall = wall 0.05 1000 0 (P 0 (-460))
+floorWall = wall 0.2 1000 0 (P 0 (-460))
 ceilWall = wall 0.05 1000 pi (P 0 490)
 
 (ramp1WallUp, ramp1WallDown) = doubleWall 500    (pi/22) (P   200  (-200))

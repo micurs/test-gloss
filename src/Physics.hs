@@ -44,7 +44,7 @@ frictionX (V vx vy) =
 
 frictionY :: Double -> Velocity -> Velocity
 frictionY f (V vx vy) =
-    V ( if (abs vx)> 0.1 then vx*0.999 else 0)
+    V ( if (abs vx)> 0.1 then vx*0.99 else 0)
       ( if (abs vy)> 0.5 then vy*friction else 0)
   where
     friction = f
@@ -71,25 +71,22 @@ isHeadingToWall (V _ vy) = vy < 0
 -- the X axis along the wall
 -- and the Y axis perpendicular and coming out of the wall
 bounce :: Wall -> Double -> (Velocity, Point2D, Point2D) -> (Velocity, Point2D, Point2D)
-bounce wall r (vel, oldP, newP) =
-    if vy >= 0 || (newPBy< 0 && oldPBy<0) then
-      (vel, oldP, newP)
-    else if newPx - r > size && oldPx - r > size then
-      (vel, oldP, newP)
-    else if newPx + r < (-size) && oldPx + r < (-size) then
-      (vel, oldP, newP)
-    else if newPBy < 0 then
-      ( frictionY f ( V vx (-vy))  -- New velocity
+bounce wall r (vel, oldP, newP)
+    | or [ vy >= 0 || (newPBy<0 && oldPBy<0)
+         , newPx > size && oldPx > size
+         , newPx < (-size) && oldPx < (-size)
+         , newPBy > 0
+         ]  = (vel, oldP, newP)
+    | otherwise = ( frictionY f (V vx (-vy))  -- New velocity
                   , oldP
                   , P newPx (newPy - 2 * newPBy)  -- New position
-      )
-    else
-      (vel, oldP, newP)
+                  )
   where
-    size = (wallDim wall) / 2
+    size = (wallDim wall) / 2 + r
     (V vx vy) = vel
     (P oldPx oldPy) = oldP
     (P newPx newPy) = newP
     newPBy = newPy - r
     oldPBy = oldPy - r
     f = wallFriction wall
+
