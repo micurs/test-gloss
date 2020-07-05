@@ -45,13 +45,19 @@ windowDisplay = InWindow "Window" (1000, 2000) (0, 0)
 
 -- Walls to be added into our scene
 
-leftWall = wall 1000 (-(pi/2)) (P (-480) 0)
-rightWall = wall 1000 (pi/2) (P 480 0)
-floorWall = wall 1000 0 (P 0 (-480))
-ceilWall = wall 1000 pi (P 0 490)
+leftWall = wall 0.1 1000 (-(pi/2)) (P (-480) 0)
+rightWall = wall 0.1 1000 (pi/2) (P 480 0)
+floorWall = wall 0.05 1000 0 (P 0 (-460))
+ceilWall = wall 0.05 1000 pi (P 0 490)
 
-ramp1Wall = wall 400    (pi/9) (P   280  (-300))
-ramp2Wall = wall 400 ((-pi)/6) (P (-300) (-120))
+(ramp1WallUp, ramp1WallDown) = doubleWall 500    (pi/22) (P   200  (-200))
+(ramp2WallUp, ramp2WallDown) = doubleWall 500 ((-pi)/22) (P (-200) (-100))
+(ramp3WallUp, ramp3WallDown) = doubleWall 260    (pi/5) (P   250  (180))
+(ramp4WallUp, ramp4WallDown) = doubleWall 260 ((-pi)/5) (P (-250) (180))
+(sep1WallUp, sep1WallDown) = doubleWall 80 (pi/2-pi/10) (P 25 (-430))
+(sep2WallUp, sep2WallDown) = doubleWall 80 (pi/2+pi/10) (P (-25) (-430))
+
+(obsWallUp, obsWallDown) = doubleWall 100 0.0 (P 0 (30))
 
 -- The initial state
 
@@ -59,22 +65,23 @@ initialState :: StdGen -> GameState
 initialState g = Game
   { randomVels = ((randomRs ((-200.0), 200.0) g), (randomRs (100.0, 500.0) g))
   , particles = ParticleSys
-    [ Particle { position = P 10 50
-               , velocity = V (-100) 150    -- 10 unit per second in X and in Y
+    [
+      Particle { position = P 10 250
+               , velocity = V (-100) 550    -- 10 unit per second in X and in Y
                , mass = 22
                }
-    , Particle { position = P (-10) 50
-               , velocity = V 100 110    -- 10 unit per second in X and in Y
-               , mass = 25
-               }
-    , Particle { position = P (-190) 100
-               , velocity = V (-20) 200    -- 10 unit per second in X and in Y
-               , mass = 32
-               }
-    , Particle { position = P 0 0
-               , velocity = V 120 430    -- 10 unit per second in X and in Y
-               , mass = 15
-               }
+    -- , Particle { position = P (-10) 50
+    --            , velocity = V 100 110    -- 10 unit per second in X and in Y
+    --            , mass = 25
+    --            }
+    -- , Particle { position = P (-190) 100
+    --            , velocity = V (-20) 200    -- 10 unit per second in X and in Y
+    --            , mass = 32
+    --            }
+    -- , Particle { position = P 0 0
+    --            , velocity = V 120 430    -- 10 unit per second in X and in Y
+    --            , mass = 15
+    --            }
     -- , Particle { position = P (350) 400
     --            , velocity = V 20 390    -- 10 unit per second in X and in Y
     --            , mass = 20.0
@@ -89,12 +96,24 @@ initialState g = Game
     --            }
     ]
   , walls =
-    [ floorWall
-    , leftWall
+    [ leftWall
     , rightWall
     , ceilWall
-    , ramp1Wall
-    , ramp2Wall
+    , ramp1WallUp
+    , ramp1WallDown
+    , ramp2WallUp
+    , ramp2WallDown
+    , ramp3WallUp
+    , ramp3WallDown
+    , ramp4WallUp
+    , ramp4WallDown
+    , sep1WallUp
+    , sep1WallDown
+    , sep2WallUp
+    , sep2WallDown
+    , obsWallUp
+    , obsWallDown
+    , floorWall
     -- , wall1
     -- , wall2
     -- , wall3
@@ -106,14 +125,15 @@ initialState g = Game
 
 
 -- Computes the bounce against a Wall of a circle of a given radius and velocity and position
-bounceWall :: Wall -> Double -> (Velocity, Point2D) -> (Velocity, Point2D)
-bounceWall w r p =
-    geoMapCouple fromWall bouncedP
+bounceWall :: Wall -> Double -> (Velocity, Point2D, Point2D) -> (Velocity, Point2D, Point2D)
+bounceWall w r vpp =
+    geoMapTriple fromWall bouncedP
   where
     fromWall = wallFrame w
+    size = wallDim w
     toWall = invert $ fromWall
-    wallP = geoMapCouple toWall p
-    bouncedP = bounce r wallP
+    wallP = geoMapTriple toWall vpp
+    bouncedP = bounce w r wallP
 
 -- RENDERING functions
 
@@ -160,7 +180,7 @@ input :: Event -> GameState -> GameState
 --   where (bvX, bvY) = ballVelocity game
 input (EventKey (SpecialKey KeyUp) Down _ _) game =
     addParticle newGame
-      $ Particle { position = P 0 0
+      $ Particle { position = P 0 200
                       , velocity = V vx vy
                       , mass = 20
                       }
@@ -189,8 +209,8 @@ updateParticle tm (firstWall : otherWalls) particle = particle
     pos = position particle
     vel = velocity particle
     time = float2Double tm
-    newVelPos = (vel, movePos time pos vel)
-    (fVel, fPos) = foldl
+    newVelPos = (vel, pos, movePos time pos vel)
+    (fVel, _, fPos) = foldl
         (\vp wall -> bounceWall wall r vp)
         (bounceWall firstWall r newVelPos)
         otherWalls

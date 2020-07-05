@@ -42,12 +42,12 @@ frictionX (V vx vy) =
   where
     friction = 0.6
 
-frictionY :: Velocity -> Velocity
-frictionY (V vx vy) =
-    V ( if (abs vx)> 0.5 then vx*0.999 else 0)
+frictionY :: Double -> Velocity -> Velocity
+frictionY f (V vx vy) =
+    V ( if (abs vx)> 0.1 then vx*0.999 else 0)
       ( if (abs vy)> 0.5 then vy*friction else 0)
   where
-    friction = 0.9
+    friction = f
 
 
 -- dt: seconds , mass, currentVelocity -> newVelocity
@@ -56,6 +56,13 @@ applyGravity dt (V vx vy) = V (vx + dvx) (vy + dvy)
   where
     (dvx, dvy) = (fst gravity * dt, snd gravity * dt)
 
+
+-- isBehindWall :: Double -> Point2D -> Bool
+-- isBehindWall (P _ py) = py < 0
+
+isHeadingToWall :: Velocity -> Bool
+isHeadingToWall (V _ vy) = vy < 0
+
 -- Bounce against a horizontal wall in 0,0
 -- First parameter is the radius of the sphere bouncing
 -- Second parameter is the couple Velocity and Position of the sphere bouncing
@@ -63,13 +70,26 @@ applyGravity dt (V vx vy) = V (vx + dvx) (vy + dvy)
 -- the wall reference frame with the Zero on the wall,
 -- the X axis along the wall
 -- and the Y axis perpendicular and coming out of the wall
-bounce :: Double -> (Velocity, Point2D) -> (Velocity, Point2D)
-bounce r ((V vx vy), (P px py)) =
-    if vy<0 && pby < 0 then
-      ( frictionY (V vx (-vy))  -- New velocity
-      , P px (py - 2 * pby)  -- New position
+bounce :: Wall -> Double -> (Velocity, Point2D, Point2D) -> (Velocity, Point2D, Point2D)
+bounce wall r (vel, oldP, newP) =
+    if vy >= 0 || (newPBy< 0 && oldPBy<0) then
+      (vel, oldP, newP)
+    else if newPx - r > size && oldPx - r > size then
+      (vel, oldP, newP)
+    else if newPx + r < (-size) && oldPx + r < (-size) then
+      (vel, oldP, newP)
+    else if newPBy < 0 then
+      ( frictionY f ( V vx (-vy))  -- New velocity
+                  , oldP
+                  , P newPx (newPy - 2 * newPBy)  -- New position
       )
     else
-      ( (V vx vy), (P px py))
+      (vel, oldP, newP)
   where
-    pby = py - r
+    size = (wallDim wall) / 2
+    (V vx vy) = vel
+    (P oldPx oldPy) = oldP
+    (P newPx newPy) = newP
+    newPBy = newPy - r
+    oldPBy = oldPy - r
+    f = wallFriction wall

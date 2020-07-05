@@ -18,6 +18,7 @@ module Geo
   , unitVectorNY
   , frame
   , geoMapCouple
+  , geoMapTriple
   , origin
   , iaxe
   , jaxe
@@ -153,6 +154,9 @@ class GeoMapper a where
 
 geoMapCouple :: Coordinate a => Coordinate b => Frame -> (a,b) -> (a,b)
 geoMapCouple frame (a,b) = ((geoMap frame a), (geoMap frame b))
+
+geoMapTriple :: Coordinate a => Coordinate b => Coordinate c => Frame -> (a,b,c) -> (a,b,c)
+geoMapTriple frame (a,b,c) = ((geoMap frame a), (geoMap frame b), (geoMap frame c))
 
 -- invert :: Frame -> Maybe Frame
 -- invert (FR (P ox oy) (UV ix iy) (UV jx jy)) =
