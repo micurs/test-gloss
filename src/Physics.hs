@@ -18,6 +18,7 @@ data Particle = Particle
   { position :: Point2D
   , velocity :: Velocity
   , mass :: Double
+  , life :: Int
   } deriving Show
 
 data ParticleSys = ParticleSys [Particle] deriving Show

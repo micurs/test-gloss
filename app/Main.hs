@@ -65,36 +65,7 @@ initialState :: StdGen -> GameState
 initialState g = Game
   { randomVels = ((randomRs ((-200.0), 200.0) g), (randomRs (100.0, 500.0) g))
   , particles = ParticleSys
-    [
-      Particle { position = P 10 250
-               , velocity = V (-100) 550    -- 10 unit per second in X and in Y
-               , mass = 22
-               }
-    -- , Particle { position = P (-10) 50
-    --            , velocity = V 100 110    -- 10 unit per second in X and in Y
-    --            , mass = 25
-    --            }
-    -- , Particle { position = P (-190) 100
-    --            , velocity = V (-20) 200    -- 10 unit per second in X and in Y
-    --            , mass = 32
-    --            }
-    -- , Particle { position = P 0 0
-    --            , velocity = V 120 430    -- 10 unit per second in X and in Y
-    --            , mass = 15
-    --            }
-    -- , Particle { position = P (350) 400
-    --            , velocity = V 20 390    -- 10 unit per second in X and in Y
-    --            , mass = 20.0
-    --            }
-    -- , Particle { position = P (-10) 110
-    --            , velocity = V (-42) 3130    -- 10 unit per second in X and in Y
-    --            , mass = 40.0
-    --            }
-    -- , Particle { position = P 400 300
-    --            , velocity = V 90 10    -- 10 unit per second in X and in Y
-    --            , mass = 30.0
-    --            }
-    ]
+    [ ]
   , walls =
     [ leftWall
     , rightWall
@@ -138,13 +109,16 @@ bounceWall w r vpp =
 -- RENDERING functions
 
 renderParticle :: Particle -> Picture
-renderParticle p = Translate x y $ Pictures
-          [ Color red $ thickCircle 1 $ double2Float r
-          , Color white $ thickCircle 1 $ double2Float (r - 5.0)
-          ]
-        where
-          (x, y) = toPoint $ position p
-          r = mass p
+renderParticle p =
+  Translate x y
+    $ Pictures
+      [ Color bcolor $ thickCircle 1 $ double2Float r
+      , Color white $ thickCircle 1 $ double2Float (r - 5.0)
+      ]
+  where
+    (x, y) = toPoint $ position p
+    r = mass p
+    bcolor = if life p > 200 then blue else red
 
 renderWall :: Wall -> Picture
 renderWall w =
@@ -158,18 +132,16 @@ renderWall w =
     transform = Translate ox oy . Rotate angle
 
 render :: GameState -> Picture
-render game = let
+render game =
+  Pictures
+    [ Pictures (map renderParticle particles)
+    , Pictures (map renderWall walls)
+    ]
+  where
     particles = getParticles game
     walls = getWalls game
     (P x y) = position $ head $ getParticles game
     vel = velocity $ head $ getParticles game
-  in
-    Pictures
-    [ Pictures (map renderParticle particles)
-    , Pictures (map renderWall walls)
-    , Translate (-480.0) (460) $ Scale 0.15 0.15 $ Color yellow $ text $ "Position[0]:" ++ (show (x, y))
-    , Translate (-480.0) (440) $ Scale 0.15 0.15 $ Color yellow $ text $ "Velocity[0]:" ++ (show vel)
-    ]
 
 -- INPUT
 
@@ -183,6 +155,7 @@ input (EventKey (SpecialKey KeyUp) Down _ _) game =
       $ Particle { position = P 0 200
                       , velocity = V vx vy
                       , mass = 20
+                      , life = 2000
                       }
   where
     c = (counter game) + 1
@@ -203,6 +176,7 @@ updateParticle :: Float -> [Wall] -> Particle -> Particle
 updateParticle tm (firstWall : otherWalls) particle = particle
   { position = fPos
   , velocity = newVel
+  , life = (life particle) - 1
   }
   where
     r = mass particle / 2
@@ -221,9 +195,13 @@ movePos tm (P px py) (V vx vy) =
   P (px + vx * tm)  (py + vy * tm)
 
 update :: Float -> GameState -> GameState
-update tm game = game {
-    particles = ParticleSys $ map (updateParticle tm walls) pl
-  }
+update tm game
+  | length pl == 0 = game
+  | otherwise = game {
+      particles = ParticleSys
+        $ filter (\p -> life p > 0)
+        $ map (updateParticle tm walls) pl
+    }
   where
     walls = getWalls game
     pl = getParticles game
