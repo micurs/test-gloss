@@ -1,5 +1,6 @@
 module Main where
 
+import Data.List
 import System.Random
 import GHC.Float
 import Graphics.Gloss
@@ -7,6 +8,8 @@ import Graphics.Gloss.Interface.Pure.Game
 
 import Physics
 import Geo
+import Render
+
 -- GAME state definition
 
 data GameState = Game
@@ -45,52 +48,35 @@ windowDisplay = InWindow "Window" (1000, 1000) (0, 0)
 
 -- Walls to be added into our scene
 
-leftWall = wall (-0.2) 1000 (-(pi/2)) (P (-480) 0)
-rightWall = wall (-0.2) 1000 (pi/2) (P 480 0)
-floorWall = wall 0.2 1000 0 (P 0 (-460))
-ceilWall = wall 0.05 1000 pi (P 0 490)
+deg2Rad :: Double -> Double
+deg2Rad x = pi * x / 180
 
-(ramp1WallUp, ramp1WallDown) = doubleWall 500    (pi/22) (P   200  (-200))
-(ramp2WallUp, ramp2WallDown) = doubleWall 500 ((-pi)/22) (P (-200) (-100))
-(ramp3WallUp, ramp3WallDown) = doubleWall 260    (pi/5) (P   250  (180))
-(ramp4WallUp, ramp4WallDown) = doubleWall 260 ((-pi)/5) (P (-250) (180))
-(sep1WallUp, sep1WallDown) = doubleWall 80 (pi/2-pi/10) (P 25 (-430))
-(sep2WallUp, sep2WallDown) = doubleWall 80 (pi/2+pi/10) (P (-25) (-430))
+leftWall = wall 0.05 1000 (-(pi/2)) (P (-480) 0) (P 0 0)
+rightWall = wall 0.05 1000 (pi/2) (P 480 0) (P 0 0)
+floorWall = wall 0.5 1000 0 (P 0 (-460)) (P 0 0)
+ceilWall = wall 0.05 1000 pi (P 0 490) (P 0 0)
 
-(obsWallUp, obsWallDown) = doubleWall 100 0.0 (P 0 (30))
+ramp1 = doubleWall 200 (deg2Rad 5)    (P 0 0)
+-- (ramp2WallUp, ramp2WallDown) = doubleWall 200 (deg2Rad (-45)) (P (-300) (0))
+-- (ramp3WallUp, ramp3WallDown) = doubleWall 260 (pi/5)          (P   250  (180))
+-- (ramp4WallUp, ramp4WallDown) = doubleWall 200 ((-pi)/5)       (P (-250) (180))
+
+sep1 = doubleWall 200 (deg2Rad 110) (P (-150) (-380))
+sep2 = doubleWall 200 (deg2Rad (-110)) (P (150) (-380))
+
+-- (obsWallUp, obsWallDown) = doubleWall 100 0.0 (P 0 (30))
 
 -- The initial state
 
 initialState :: StdGen -> GameState
 initialState g = Game
-  { randomVels = ((randomRs ((-200.0), 200.0) g), (randomRs (100.0, 500.0) g))
+  { randomVels = ((randomRs ((-300.0), 300.0) g), (randomRs (150.0, 700.0) g))
   , particles = ParticleSys
     [ ]
   , walls =
-    [ leftWall
-    , rightWall
-    , ceilWall
-    , ramp1WallUp
-    , ramp1WallDown
-    , ramp2WallUp
-    , ramp2WallDown
-    , ramp3WallUp
-    , ramp3WallDown
-    , ramp4WallUp
-    , ramp4WallDown
-    , sep1WallUp
-    , sep1WallDown
-    , sep2WallUp
-    , sep2WallDown
-    , obsWallUp
-    , obsWallDown
-    , floorWall
-    -- , wall1
-    -- , wall2
-    -- , wall3
-    -- , wall4
-    -- , Wall (frame (P 0.0 480) (unitVector (V (-1.0) 0.0)) (unitVector (V 0.0 (-1.0))))
-    ]
+    [ leftWall, rightWall, ceilWall, floorWall ]
+    -- ++ sep1 ++ sep2
+    ++ ramp1
   , counter = 0
   }
 
@@ -98,50 +84,21 @@ initialState g = Game
 -- Computes the bounce against a Wall of a circle of a given radius and velocity and position
 bounceWall :: Double -> (Velocity, Point2D, Point2D) -> Wall -> (Velocity, Point2D, Point2D)
 bounceWall r vpp w =
-    geoMapTriple fromWall bouncedP
+    geoMapTriple fromWallFrame bouncedP
   where
-    fromWall = wallFrame w
+    toWallFrame = toWall w
+    fromWallFrame = invert toWallFrame
     size = wallDim w
-    toWall = invert $ fromWall
-    wallP = geoMapTriple toWall vpp
+    wallP = geoMapTriple toWallFrame vpp
     bouncedP = bounce w r wallP
 
--- RENDERING functions
-
-renderParticle :: Particle -> Picture
-renderParticle p =
-  Translate x y
-    $ Pictures
-      [ Color bcolor $ thickCircle 1 $ double2Float r
-      , Color white $ thickCircle 1 $ double2Float (r - 5.0)
-      ]
-  where
-    (x, y) = toPoint $ position p
-    r = mass p
-    bcolor = if life p > 200 then blue else red
-
-renderWall :: Wall -> Picture
-renderWall w =
-    Color black $ transform $ rectangleSolid ww 5
-  where
-    o = centerPos w
-    ox = double2Float $ x o
-    oy = double2Float $ y o
-    ww = double2Float $ wallDim w
-    angle = double2Float $ (-1) * (rotAngle w) * (180/pi)
-    transform = Translate ox oy . Rotate angle
 
 render :: GameState -> Picture
 render game =
   Pictures
-    [ Pictures (map renderParticle particles)
-    , Pictures (map renderWall walls)
+    [ Pictures (map renderParticle $ getParticles game)
+    , Pictures (map renderWall $ getWalls game)
     ]
-  where
-    particles = getParticles game
-    walls = getWalls game
-    (P x y) = position $ head $ getParticles game
-    vel = velocity $ head $ getParticles game
 
 -- INPUT
 
@@ -150,14 +107,17 @@ input :: Event -> GameState -> GameState
 --   where (bvX, bvY) = ballVelocity game
 -- input (EventKey (SpecialKey KeyLeft) Down _ _) game = game { ballVelocity = ( bvX-20, bvY )}
 --   where (bvX, bvY) = ballVelocity game
-input (EventKey (SpecialKey KeyUp) Down _ _) game =
-    addParticle newGame
+input (EventKey (SpecialKey KeyUp) Down _ _) game
+  | l >= 40 = newGame
+  | otherwise = addParticle newGame
       $ Particle { position = P 0 200
-                      , velocity = V vx vy
-                      , mass = 20
-                      , life = 2000
-                      }
+                 , velocity = V vx vy
+                 , acceleration = V 0 0
+                 , mass = 30.0 + (fromIntegral c) * 2       -- (fromIntegral c)
+                 , life = 5000
+                 }
   where
+    l = length $ getParticles game
     c = (counter game) + 1
     ((vx: velXs), (vy:velYs)) = randomVels game -- Get the first of the infinite lists of random values
     newGame = game
@@ -183,11 +143,16 @@ updateParticle time (firstWall : otherWalls) particle = particle
     pos = position particle
     vel = velocity particle
     newVelPos = (vel, pos, movePos time vel pos)
-    (fVel, _, fPos) = foldl
+    (newVel, _, fPos) = foldl
         (bounceWall r)
         (bounceWall r newVelPos firstWall)
         otherWalls
-    newVel = applyGravity time fVel
+
+gravityParticle ::Double -> Particle -> Particle
+gravityParticle time p =
+    p { velocity = applyGravity time (velocity p)}
+
+
 
 
 update :: Float -> GameState -> GameState
@@ -195,8 +160,12 @@ update tm game
   | length pl == 0 = game
   | otherwise = game {
       particles = ParticleSys
-        $ filter (\p -> life p > 0)
-        $ map (updateParticle time walls) pl
+        $ collideParticles
+        $ ( map (updateParticle time walls)
+          . map (gravityParticle time)
+          . filter (\p -> life p > 0)
+        )
+        pl
     }
   where
     walls = getWalls game
@@ -219,5 +188,4 @@ main = do
     render
     input
     update
-
 

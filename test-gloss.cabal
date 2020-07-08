@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4161831fff596df6d190a9473130a9625a075abac81f43af58e86287160f50cb
+-- hash: cff21a7a4edaef3a45893d34b10e7d82f7f1429c5e44f72c3abf42d3e0aad4c3
 
 name:           test-gloss
 version:        0.1.1.0
@@ -28,9 +28,11 @@ source-repository head
 library
   exposed-modules:
       Geo
+      Geo.Basic
       Lib
       Physics
       Physics.Wall
+      Render
   other-modules:
       Paths_test_gloss
   hs-source-dirs:

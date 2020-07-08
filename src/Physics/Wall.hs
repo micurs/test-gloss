@@ -7,28 +7,33 @@ module Physics.Wall
 import Geo
 
 data Wall = Wall
-  { wallFrame :: Frame
+  { toWall :: Frame
   , rotAngle :: Double
   , centerPos :: Point2D
   , wallDim :: Double
   , wallFriction :: Double
+  , disp :: Point2D
   } deriving Show
 
-wall :: Double -> Double -> Double -> Point2D -> Wall
-wall f d angle (P trx try) =
-    Wall { wallFrame = compose trn $ compose rot baseFrame
+--
+wall :: Double -> Double -> Double -> Point2D -> Point2D -> Wall
+wall friction size angle (P trx try) (P dx dy) =
+    Wall { toWall = invert $ trn << rot << dsp << baseFrame
          , rotAngle = angle
-         , centerPos = (P trx try)
-         , wallDim = d
-         , wallFriction = 1.0 - f
+         , centerPos = P trx try
+         , wallDim = size
+         , wallFriction = 1.0 - friction
+         , disp = P dx dy
     }
   where
     rot = rotation angle
     trn = translation trx try
-    baseFrame = frame (P 0 0) unitVectorX unitVectorY
+    dsp = translation dx dy
 
-doubleWall :: Double -> Double -> Point2D -> ( Wall, Wall )
+doubleWall :: Double -> Double -> Point2D -> [Wall]
 doubleWall d a (P px py) =
-    ( wall 0.4 d a (P px py)
-    , wall 0.1 d (a + pi) (P px (py-4))
-    )
+    [ wall 0.2 40 (a - pi/2) (P px py) (P 5 ((d/2)-4) )
+    , wall 0.2 40 (a + pi/2) (P px py) (P (-5) ((d/2)-4) )
+    , wall 0.2 d   a      (P px py) (P 0 10)
+    , wall 0.2 d (a - pi) (P px py) (P 0 20)
+    ]

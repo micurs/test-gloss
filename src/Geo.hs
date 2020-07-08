@@ -1,21 +1,15 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Geo
-  ( Vector2D(V)
-  , Point2D(P)
-  , Transformation(TR)
+  ( module Geo.Basic
   , Coordinate(..)
-  , UnitVector2D
   , Dottable(..)
-  , Frame
-  , GeoMapper(..)
+  , Transformer(..)
+  , baseFrame
+  , vectorFromPoints
   , pointPlusVector
   , vectorPlusVector
-  , unitVector
-  , unitVectorX
-  , unitVectorY
-  , unitVectorNX
-  , unitVectorNY
+  , orthoUnitVector
   , frame
   , geoMapCouple
   , geoMapTriple
@@ -29,32 +23,12 @@ module Geo
 import Graphics.Gloss
 import Numeric.Matrix
 
--- ============================================================================
-
-data Vector2D = V Double Double deriving Show
-data UnitVector2D = UV Double Double deriving Show
-data Point2D = P Double Double deriving Show
-
-data Transformation = TR
-  { direct :: Matrix Double
-  , inverse :: Matrix Double
-  } deriving Show
+import Geo.Basic
 
 -- ============================================================================
 
-zeroPoint :: Point2D
-zeroPoint = P 0.0 0.0
 
-unitVector :: Vector2D -> UnitVector2D
-unitVector (V i j) = UV (i/l) (j/l)
-  where
-    l = sqrt $ i*i + j*j
 
-unitVectorX = UV 1.0 0.0
-unitVectorNX = UV (-1.0) 0.0
-
-unitVectorY = UV 0.0 1.0
-unitVectorNY = UV 0.0 (-1.0)
 
 homPoint :: [Double] -> Point2D
 homPoint [x,y,k] = P (x/k) (y/k)
@@ -66,6 +40,10 @@ homUnitVector:: [Double] -> UnitVector2D
 homUnitVector [x,y,_] = UV x y
 
 -- Mixed Operations
+
+
+vectorFromPoints :: Point2D -> Point2D -> Vector2D
+vectorFromPoints (P p1x p1y) (P p2x p2y) = V (p1x - p2x) (p1y - p2y)
 
 pointPlusVector :: Point2D -> Vector2D -> Point2D
 pointPlusVector (P x y) (V i j) = P (x+i) (y+j)
@@ -81,6 +59,16 @@ vector2DFromMatrix m = (V (at m (1, 1)) (at m (2, 1)) )
 
 unitVector2DFromMatrix :: Matrix Double -> UnitVector2D
 unitVector2DFromMatrix m = unitVector (V (at m (1, 1)) (at m (2, 1)) )
+
+orthoVector :: Vector2D -> Vector2D
+orthoVector (V x y) = V y x
+
+orthoUnitVector :: UnitVector2D -> UnitVector2D
+orthoUnitVector (UV x y) = UV (-y) x
+
+
+coordinatesFromMatrix :: Matrix Double -> (Double, Double, Double)
+coordinatesFromMatrix m = ( at m (1, 1), at m (2, 1), at m (3, 1))
 
 -- matrixFromFrame :: Frame -> Matrix Double
 -- matrixFromFrame (FR (P ox oy) (UV ix iy) (UV jx jy))
@@ -117,40 +105,67 @@ class Coordinate a where
   toPoint :: a -> Point
   x :: a -> Double
   y :: a -> Double
-  geoMap :: Transformation -> a -> a
+  geoMap :: Transformer t => t -> a -> a
+  geoMapBack :: Transformer t => t -> a -> a
 
 instance Coordinate Point2D where
+
   toPoint (P x y) = (realToFrac x, realToFrac y)
+
   x (P x _) = x
+
   y (P _ y) = y
-  geoMap t (P x y) = (point2DFromMatrix $ times m v)
+
+  geoMap t (P x y) = P (tx/tk) (ty/tk)
     where
-      m = direct t -- matrixFromFrame frame
-      v = fromList [ [x], [y], [1]]
+      (tx,ty,tk) = transform t (x,y,1.0)
+
+  geoMapBack t (P x y) = P (tx/tk) (ty/tk)
+    where
+      (tx,ty,tk) = transformBack t (x,y,1.0)
+
 
 instance Coordinate Vector2D where
+
   toPoint (V x y) = (realToFrac x, realToFrac y)
+
   x (V x _) = x
+
   y (V _ y) = y
-  geoMap t (V x y) = (vector2DFromMatrix $ times m v)
+
+  geoMap t (V x y) = V tx ty
     where
-      m = direct t -- matrixFromFrame frame
-      v = fromList [[x], [y], [0]]
+      (tx,ty,_) = transform t (x,y,0)
+
+  geoMapBack t (V x y) = V tx ty
+    where
+      (tx,ty,_) = transformBack t (x,y,0.0)
+
 
 instance Coordinate UnitVector2D where
+
   toPoint (UV x y) = (realToFrac x, realToFrac y)
+
   x (UV x _) = x
+
   y (UV _ y) = y
-  geoMap t (UV x y) = (unitVector2DFromMatrix $ times m v)
+
+  geoMap tr (UV i j) = unitVector (V ti tj)
     where
-      m = direct t -- matrixFromFrame frame
-      v = fromList [[x], [y], [0]]
+      (ti,tj,_) = transform tr (i,j,0)
+
+  geoMapBack t (UV i j) = unitVector (V ti tj)
+    where
+      (ti,tj,_) = transformBack t (i,j,0.0)
 
 -- ============================================================================
 
-class GeoMapper a where
+class Transformer a where
   invert:: a -> a
   compose :: a -> a -> a
+  (<<) :: a -> a -> a
+  transform :: a -> (Double, Double, Double) -> (Double, Double, Double)
+  transformBack :: a -> (Double, Double, Double) -> (Double, Double, Double)
 
 geoMapCouple :: Coordinate a => Coordinate b => Frame -> (a,b) -> (a,b)
 geoMapCouple frame (a,b) = ((geoMap frame a), (geoMap frame b))
@@ -158,28 +173,27 @@ geoMapCouple frame (a,b) = ((geoMap frame a), (geoMap frame b))
 geoMapTriple :: Coordinate a => Coordinate b => Coordinate c => Frame -> (a,b,c) -> (a,b,c)
 geoMapTriple frame (a,b,c) = ((geoMap frame a), (geoMap frame b), (geoMap frame c))
 
--- invert :: Frame -> Maybe Frame
--- invert (FR (P ox oy) (UV ix iy) (UV jx jy)) =
---     case mm of
---       Just m -> Just (FR (homPoint $ col 3 m)
---                          (homUnitVector $ col 1 m)
---                          (homUnitVector $ col 2 m))
---       Nothing -> Nothing
---   where
---     mm = inv $ fromList
---         [ [ ix,  jx,  ox]
---         , [ iy,  jy,  oy]
---         , [0.0, 0.0, 1.0]
---         ]
-
 
 -- ===============================================================================
 
 
-instance GeoMapper Transformation where
-  invert (TR direct inverse) = TR { direct = inverse, inverse = direct }
+instance Transformer Transformation where
+
+  invert (TR direct inverse) =
+    TR { direct = inverse, inverse = direct }
+
   compose (TR dir1 inv1) (TR dir2 inv2) =
     TR { direct = times dir1 dir2, inverse = times inv2 inv1 }
+
+  (<<) a b = compose a b
+
+  transform (TR direct _) (x,y,k) = coordinatesFromMatrix $ times direct v
+    where
+      v = fromList [[x], [y], [k]]
+
+  transformBack (TR _ inverse) (x,y,k) = coordinatesFromMatrix $ times inverse v
+    where
+      v = fromList [[x], [y], [k]]
 
 -- Rotation with angle in radians counterclockwise
 rotation :: Double -> Transformation
@@ -229,10 +243,6 @@ translation tx ty = TR { direct = direct, inverse = inverse }
 
 -- FRAME ==================================================================
 
-type Frame = Transformation
-
--- class ReferenceFrame a where
-
 -- The matrix for a frame represent a rigid transformation
 -- [ M t ] => the inverse is [ MT  MT*t ]
 -- [ 0 1 ]                   [  0     1 ]
@@ -241,12 +251,12 @@ frame :: Point2D -> UnitVector2D -> UnitVector2D -> Frame
 frame (P ox oy) (UV ix iy) (UV jx jy) =
     TR { direct = direct, inverse = inverse }
   where
-    direct = fromList
+    inverse = fromList
         [ [ ix,  jx,  ox]
         , [ iy,  jy,  oy]
         , [0.0, 0.0, 1.0]
         ]
-    inverse = fromList
+    direct = fromList
         [ [ ix,  iy,  -(ix*ox+iy*oy)]
         , [ jx,  jy,  -(jx*ox+jy*oy)]
         , [0.0, 0.0, 1.0]
@@ -268,4 +278,5 @@ jaxe f = unitVector (V (at m (1, 2)) (at m (2, 2)) )
   where
     m = direct f
 
-
+baseFrame :: Frame
+baseFrame = frame (P 0 0) unitVectorX unitVectorY
