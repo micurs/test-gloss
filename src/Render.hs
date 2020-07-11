@@ -1,6 +1,7 @@
 module Render
   ( renderParticle
   , renderWall
+  , renderCircle
   ) where
 
 import GHC.Float
@@ -23,12 +24,24 @@ renderParticle p =
     r = mass p
     bcolor = if life p > 200 then black else red
 
+renderCircle :: Circle -> Picture
+renderCircle c =
+  Translate x y
+    $ Pictures
+      [ Color yellow $ thickCircle 1 r
+      , Color (greyN 0.2) $ thickCircle 1 (r - 5.0)
+      ]
+  where
+    (x, y) = toPoint $ center c
+    r = double2Float $ 2 * (radius c)
+
+
 renderWall :: Wall -> Picture
 renderWall w =
     Pictures
       [ transform $ Pictures
-        [ Color (greyN 0.2) $ rectangleSolid ww 10
-        , Color yellow $ transformTop $ rectangleSolid ww 1
+        [ Color (greyN 0.2) $ Translate 0 (-5) $ rectangleSolid ww 10
+        , Color yellow $ transformTop $ Translate 0 (-5) $ rectangleSolid ww 1
         ]
       ]
   where

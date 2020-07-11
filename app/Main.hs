@@ -15,7 +15,7 @@ import Render
 data GameState = Game
   { randomVels :: ([Double],[Double])
   , particles :: ParticleSys
-  , walls :: [Wall]
+  , obstructions :: [Obstruction]
   , counter :: Int
   } deriving Show
 
@@ -23,14 +23,18 @@ getParticles :: GameState -> [Particle]
 getParticles (Game _ (ParticleSys particles) _ _) = particles
 
 getWalls :: GameState -> [Wall]
-getWalls (Game _ _ walls _) = walls
+getWalls (Game _ _ obstructions _) =
+  map (\(W w) -> w) $ filter isWall obstructions
+
+getCircles :: GameState -> [Circle]
+getCircles (Game _ _ obstructions _) =
+  map (\(C c) -> c) $ filter isCircle obstructions
 
 addParticle :: GameState -> Particle -> GameState
-addParticle (Game rv ps w c) p
-  = Game { randomVels = rv
-         , particles = addParticle2Sys ps p
-         , walls = w
-         , counter = c}
+addParticle game p
+  = game { particles = addParticle2Sys ps p }
+  where
+    ps = particles game
 
 -- Define the initial state of the game
 
@@ -44,39 +48,55 @@ sceneRight :: Double
 sceneRight = 480
 
 windowDisplay :: Display
-windowDisplay = InWindow "Window" (1000, 1000) (0, 0)
+windowDisplay = InWindow "Window" (1000, 1500) (0, 0)
 
 -- Walls to be added into our scene
+
+doubleWall :: Double -> Double -> Double -> Point2D -> [Obstruction]
+doubleWall f d a (P px py) =
+    [ W wTop, W wBottom, C cr, C cl ]
+  where
+    -- w1 = wall 0.1 40 (a - pi/2) (P px py) (P 5 ((d/2)-4) )
+    -- w2 = wall 0.1 40 (a + pi/2) (P px py) (P (-5) ((d/2)-4) )
+    trn = geoMap $ (translation px py) << (rotation a)
+    cr = createCircle 15 $ trn (P (d/2) (-5))
+    cl = createCircle 15 $ trn (P (-(d)/2) (-5))
+    wTop = wall f d   a      (P px py) (P 0 10)
+    wBottom = wall f d (a - pi) (P px py) (P 0 20)
 
 deg2Rad :: Double -> Double
 deg2Rad x = pi * x / 180
 
-leftWall = wall 0.05 1000 (-(pi/2)) (P (-480) 0) (P 0 0)
-rightWall = wall 0.05 1000 (pi/2) (P 480 0) (P 0 0)
-floorWall = wall 0.5 1000 0 (P 0 (-460)) (P 0 0)
-ceilWall = wall 0.05 1000 pi (P 0 490) (P 0 0)
+leftWall = wall 0.05 2000 (-(pi/2)) (P (-480) 0) (P 0 0)
+rightWall = wall 0.05 2000 (pi/2) (P 480 0) (P 0 0)
+floorWall = wall 0.5 2000 0 (P 0 (-460)) (P 0 0)
+ceilWall = wall 0.05 1200 pi (P 0 700) (P 0 0)
 
-ramp1 = doubleWall 200 (deg2Rad 5)    (P 0 0)
--- (ramp2WallUp, ramp2WallDown) = doubleWall 200 (deg2Rad (-45)) (P (-300) (0))
--- (ramp3WallUp, ramp3WallDown) = doubleWall 260 (pi/5)          (P   250  (180))
--- (ramp4WallUp, ramp4WallDown) = doubleWall 200 ((-pi)/5)       (P (-250) (180))
+ramp1 = doubleWall (-0.3) 250 (deg2Rad 30) (P 320 150)
+ramp2 = doubleWall (-0.3) 250 (deg2Rad (-30)) (P (-320) 150)
 
-sep1 = doubleWall 200 (deg2Rad 110) (P (-150) (-380))
-sep2 = doubleWall 200 (deg2Rad (-110)) (P (150) (-380))
+ramp3 = doubleWall (-0.1) 230 (deg2Rad 10) (P 160 (-100))
+ramp4 = doubleWall (-0.1) 230 (deg2Rad (-10)) (P (-160) (-100))
 
--- (obsWallUp, obsWallDown) = doubleWall 100 0.0 (P 0 (30))
+ramp5 = doubleWall 0.4 200 (deg2Rad (70)) (P 120 (-400))
+ramp6 = doubleWall 0.4 200 (deg2Rad (-70)) (P (-120) (-400))
+
+
+c1 = createCircle 50 (P 0 180)
+c2 = createCircle 60 (P (-200) 420)
+c3 = createCircle 60 (P 200 420)
 
 -- The initial state
 
 initialState :: StdGen -> GameState
 initialState g = Game
-  { randomVels = ((randomRs ((-300.0), 300.0) g), (randomRs (150.0, 700.0) g))
+  { randomVels = ((randomRs ((-300.0), 300.0) g), (randomRs (150.0, 1000.0) g))
   , particles = ParticleSys
     [ ]
-  , walls =
-    [ leftWall, rightWall, ceilWall, floorWall ]
-    -- ++ sep1 ++ sep2
-    ++ ramp1
+  , obstructions =
+    [ (C c1), (C c2),(C c3)
+    ,(W leftWall), (W rightWall), (W ceilWall), (W floorWall) ]
+    ++ ramp1 ++ ramp2 ++ ramp3 ++ ramp4 ++ ramp5 ++ ramp6
   , counter = 0
   }
 
@@ -93,11 +113,28 @@ bounceWall r vpp w =
     bouncedP = bounce w r wallP
 
 
+bounceCircle :: Particle -> Circle -> Particle
+bounceCircle p c =
+    geoMapParticle toGlobalFrame bouncedHp
+  where
+    pos = position p
+    vP2C = (center c) `minus` pos
+    frameOrigin = pos .-> (0.5  .> vP2C)
+    frameXAxe = unitVector2D vP2C
+    toLocalFrame = frame frameOrigin frameXAxe
+    toGlobalFrame = invert toLocalFrame
+    hp = geoMapParticle toLocalFrame p
+    hCenterParticle = geoMap toLocalFrame (center c)
+    hc = createCircle (radius c) hCenterParticle
+    bouncedHp = alignedP2CBounce (hp,hc)
+
+
 render :: GameState -> Picture
 render game =
   Pictures
     [ Pictures (map renderParticle $ getParticles game)
     , Pictures (map renderWall $ getWalls game)
+    , Pictures (map renderCircle $ getCircles game)
     ]
 
 -- INPUT
@@ -108,13 +145,13 @@ input :: Event -> GameState -> GameState
 -- input (EventKey (SpecialKey KeyLeft) Down _ _) game = game { ballVelocity = ( bvX-20, bvY )}
 --   where (bvX, bvY) = ballVelocity game
 input (EventKey (SpecialKey KeyUp) Down _ _) game
-  | l >= 40 = newGame
+  | l >= 400 = newGame
   | otherwise = addParticle newGame
-      $ Particle { position = P 0 200
+      $ Particle { position = P 0 400
                  , velocity = V vx vy
                  , acceleration = V 0 0
-                 , mass = 30.0 + (fromIntegral c) * 2       -- (fromIntegral c)
-                 , life = 5000
+                 , mass = 50        -- (fromIntegral c)
+                 , life = 3000
                  }
   where
     l = length $ getParticles game
@@ -131,13 +168,20 @@ input (EventKey (SpecialKey KeyUp) Down _ _) game
 input _ game = game
 
 -- SIMULATION step
+updateParticleAgainstCircles :: Double -> [Circle] -> Particle -> Particle
+updateParticleAgainstCircles time (firstCircle:otherCircles) particle
+  = foldl
+      (\bp c -> bounceCircle bp c)
+      (bounceCircle particle firstCircle)
+      otherCircles
 
-updateParticle :: Double -> [Wall] -> Particle -> Particle
-updateParticle time (firstWall : otherWalls) particle = particle
-  { position = fPos
-  , velocity = newVel
-  , life = (life particle) - 1
-  }
+
+updateParticleAgainstWalls :: Double -> [Wall] -> Particle -> Particle
+updateParticleAgainstWalls time (firstWall : otherWalls) particle
+  = particle { position = fPos
+             , velocity = newVel
+             , life = (life particle) - 1
+             }
   where
     r = mass particle / 2
     pos = position particle
@@ -148,27 +192,57 @@ updateParticle time (firstWall : otherWalls) particle = particle
         (bounceWall r newVelPos firstWall)
         otherWalls
 
-gravityParticle ::Double -> Particle -> Particle
-gravityParticle time p =
-    p { velocity = applyGravity time (velocity p)}
+gravity ::Double -> Particle -> Particle
+gravity time p =
+    p { acceleration = g `add` acc }
+  where
+    g = time .> gravityAcceleration
+    acc = acceleration p
 
+friction :: Double -> Particle -> Particle
+friction time p =
+    p { acceleration = f `add` (acceleration p) }
+  where
+    f = (-time * 0.2) .> velocity p
+    acc = acceleration p
 
+resetAcc :: Particle -> Particle
+resetAcc p = p { acceleration = V 0 0 }
 
+updateVelocity :: Double -> Particle -> Particle
+updateVelocity tm p =
+    p { velocity = acc `add` vel}
+  where
+    acc = acceleration p
+    vel = velocity p
+
+updatePos :: Double -> Particle -> Particle
+updatePos tm p =
+    p { position = pos .-> vel }
+  where
+    pos = position p
+    vel = tm .> velocity p
+
+updatePipe :: Double -> [Wall] -> [Circle] -> [Particle] -> [Particle]
+updatePipe tm walls circles
+    = collideParticles
+    . map (updateParticleAgainstWalls tm walls)
+    . map (updateParticleAgainstCircles tm circles)
+    . map (updateVelocity tm)
+    . map (gravity tm)
+    . map (friction tm)
+    . map (resetAcc)
+    . filter (\p -> life p > 0)
 
 update :: Float -> GameState -> GameState
 update tm game
   | length pl == 0 = game
   | otherwise = game {
-      particles = ParticleSys
-        $ collideParticles
-        $ ( map (updateParticle time walls)
-          . map (gravityParticle time)
-          . filter (\p -> life p > 0)
-        )
-        pl
+      particles = ParticleSys $ updatePipe time walls circles pl
     }
   where
     walls = getWalls game
+    circles = getCircles game
     pl = getParticles game
     time = float2Double tm
 

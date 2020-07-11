@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: cff21a7a4edaef3a45893d34b10e7d82f7f1429c5e44f72c3abf42d3e0aad4c3
+-- hash: 066841b99200fbdd5ed019fe14b180533be7c5457e98b61e5cbc71806d587905
 
 name:           test-gloss
 version:        0.1.1.0
@@ -28,10 +28,13 @@ source-repository head
 library
   exposed-modules:
       Geo
-      Geo.Basic
+      Geo.Base
+      Geo.PointVector
+      Geo.Transformation
       Lib
       Physics
       Physics.Wall
+      Physics.Circle
       Render
   other-modules:
       Paths_test_gloss
@@ -63,7 +66,7 @@ test-suite test-gloss-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Paths_test_gloss
+      GeoSpec
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
@@ -72,5 +75,7 @@ test-suite test-gloss-test
     , bed-and-breakfast >=0.5
     , gloss >=1.13
     , random
+    , hspec ==2.*
     , test-gloss
   default-language: Haskell2010
+  build-tool-depends: hspec-discover:hspec-discover == 2.*
