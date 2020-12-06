@@ -10,6 +10,7 @@ module Geo.Transformation
   , frame
   , geoMapCouple
   , geoMapTriple
+  , frameTransformation
   ) where
 
 import qualified Numeric.Matrix as M
@@ -120,6 +121,12 @@ instance RefFrame Frame where
   yAxe f = unitVector2D (V (M.at m (1, 2)) (M.at m (2, 2)) )
     where
       m = directM f
+
+frameTransformation :: Frame -> Transformation
+frameTransformation f = TR { direct = d, inverse = i}
+  where
+    d = directM f
+    i = inverseM f
 
 baseFrame :: Frame
 baseFrame = frame (P 0 0) unitVector2DX

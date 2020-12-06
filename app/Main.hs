@@ -72,25 +72,25 @@ rightWall = wall 0.05 2000 (pi/2) (P 480 0) (P 0 0)
 floorWall = wall 0.5 2000 0 (P 0 (-460)) (P 0 0)
 ceilWall = wall 0.05 1200 pi (P 0 700) (P 0 0)
 
-ramp1 = doubleWall (-0.3) 250 (deg2Rad 30) (P 320 150)
-ramp2 = doubleWall (-0.3) 250 (deg2Rad (-30)) (P (-320) 150)
+ramp1 = doubleWall (-0.2) 250 (deg2Rad 30) (P 320 150)
+ramp2 = doubleWall (-0.2) 250 (deg2Rad (-30)) (P (-320) 150)
 
-ramp3 = doubleWall (-0.1) 230 (deg2Rad 10) (P 160 (-100))
-ramp4 = doubleWall (-0.1) 230 (deg2Rad (-10)) (P (-160) (-100))
+ramp3 = doubleWall (-0.05) 230 (deg2Rad 10) (P 170 (-100))
+ramp4 = doubleWall (-0.05) 230 (deg2Rad (-10)) (P (-170) (-100))
 
 ramp5 = doubleWall 0.4 200 (deg2Rad (70)) (P 120 (-400))
 ramp6 = doubleWall 0.4 200 (deg2Rad (-70)) (P (-120) (-400))
 
 
 c1 = createCircle 50 (P 0 180)
-c2 = createCircle 60 (P (-200) 420)
-c3 = createCircle 60 (P 200 420)
+c2 = createCircle 70 (P (-200) 420)
+c3 = createCircle 70 (P 200 420)
 
 -- The initial state
 
 initialState :: StdGen -> GameState
 initialState g = Game
-  { randomVels = ((randomRs ((-300.0), 300.0) g), (randomRs (150.0, 1000.0) g))
+  { randomVels = ((randomRs ((-200.0), 200.0) g), (randomRs (150.0, 800.0) g))
   , particles = ParticleSys
     [ ]
   , obstructions =
@@ -102,30 +102,39 @@ initialState g = Game
 
 
 -- Computes the bounce against a Wall of a circle of a given radius and velocity and position
-bounceWall :: Double -> (Velocity, Point2D, Point2D) -> Wall -> (Velocity, Point2D, Point2D)
-bounceWall r vpp w =
-    geoMapTriple fromWallFrame bouncedP
+-- bounceWall2 :: Double -> (Velocity, Point2D, Point2D) -> Wall -> (Velocity, Point2D, Point2D)
+-- bounceWall2 r vpp w =
+--     geoMapTriple fromWallFrame bouncedP
+--   where
+--     toWallFrame = toWall w
+--     fromWallFrame = invert toWallFrame
+--     wallP = geoMapTriple toWallFrame vpp
+--     bouncedP = bounce w r wallP
+
+bounceWall :: Particle -> Wall -> Particle
+bounceWall p w =
+    toGlobal bouncedHp
   where
     toWallFrame = toWall w
-    fromWallFrame = invert toWallFrame
-    size = wallDim w
-    wallP = geoMapTriple toWallFrame vpp
-    bouncedP = bounce w r wallP
+    toGlobal = geoMapParticle $ invert toWallFrame
+    hp = geoMapParticle toWallFrame p
+    bouncedHp = bounce w hp
 
 
 bounceCircle :: Particle -> Circle -> Particle
 bounceCircle p c =
-    geoMapParticle toGlobalFrame bouncedHp
+    toGlobalFramePart bouncedHp
   where
     pos = position p
     vP2C = (center c) `minus` pos
     frameOrigin = pos .-> (0.5  .> vP2C)
     frameXAxe = unitVector2D vP2C
-    toLocalFrame = frame frameOrigin frameXAxe
-    toGlobalFrame = invert toLocalFrame
-    hp = geoMapParticle toLocalFrame p
-    hCenterParticle = geoMap toLocalFrame (center c)
-    hc = createCircle (radius c) hCenterParticle
+    ft = frameTransformation $ frame frameOrigin frameXAxe
+    toLocalFramePart = geoMapParticle ft
+    toGlobalFramePart = geoMapParticle (invert ft)
+    toLocalFrameCirc = geoMapCircle ft
+    hp = toLocalFramePart p
+    hc = toLocalFrameCirc c
     bouncedHp = alignedP2CBounce (hp,hc)
 
 
@@ -171,26 +180,31 @@ input _ game = game
 updateParticleAgainstCircles :: Double -> [Circle] -> Particle -> Particle
 updateParticleAgainstCircles time (firstCircle:otherCircles) particle
   = foldl
-      (\bp c -> bounceCircle bp c)
+      bounceCircle
       (bounceCircle particle firstCircle)
       otherCircles
 
 
 updateParticleAgainstWalls :: Double -> [Wall] -> Particle -> Particle
 updateParticleAgainstWalls time (firstWall : otherWalls) particle
-  = particle { position = fPos
-             , velocity = newVel
-             , life = (life particle) - 1
-             }
-  where
-    r = mass particle / 2
-    pos = position particle
-    vel = velocity particle
-    newVelPos = (vel, pos, movePos time vel pos)
-    (newVel, _, fPos) = foldl
-        (bounceWall r)
-        (bounceWall r newVelPos firstWall)
-        otherWalls
+  = foldl
+    bounceWall
+    (bounceWall particle firstWall)
+    otherWalls
+
+  -- = particle { position = fPos
+  --            , velocity = newVel
+  --            , life = (life particle) - 1
+  --            }
+  -- where
+    -- r = mass particle / 2
+    -- pos = position particle
+    -- vel = velocity particle
+    -- newVelPos = (vel, pos, movePos time vel pos)
+    -- (newVel, _, fPos) = foldl
+    --     (bounceWall r)
+    --     (bounceWall r newVelPos firstWall)
+    --     otherWalls
 
 gravity ::Double -> Particle -> Particle
 gravity time p =
@@ -218,20 +232,23 @@ updateVelocity tm p =
 
 updatePos :: Double -> Particle -> Particle
 updatePos tm p =
-    p { position = pos .-> vel }
+    p { position = pos .-> vel, life = l - 1 }
   where
     pos = position p
     vel = tm .> velocity p
+    l = life p
 
 updatePipe :: Double -> [Wall] -> [Circle] -> [Particle] -> [Particle]
 updatePipe tm walls circles
-    = collideParticles
-    . map (updateParticleAgainstWalls tm walls)
-    . map (updateParticleAgainstCircles tm circles)
-    . map (updateVelocity tm)
-    . map (gravity tm)
-    . map (friction tm)
-    . map (resetAcc)
+    = map (updatePos tm)
+    . collideParticles
+    . map ( (updateParticleAgainstCircles tm circles)
+          . (updateParticleAgainstWalls tm walls)
+          . (updateVelocity tm)
+          . (gravity tm)
+          . (friction tm)
+          . resetAcc
+    )
     . filter (\p -> life p > 0)
 
 update :: Float -> GameState -> GameState

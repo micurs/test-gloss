@@ -31,16 +31,14 @@ spec = do
       let
         v = fromList [2.0, 2.0, 2.0] :: Vector2D
       in do
-        x v `shouldBe` 2.0
-        y v `shouldBe` 2.0
+        v `shouldBe` (V 2 2)
 
     describe "Testing Geo.Base Point2D" $ do
       it "Should create a Point2D from a list" $
         let
           p = fromList [2.0, 2.0, 2.0] :: Point2D
         in do
-          x p `shouldBe` 1.0
-          y p `shouldBe` 1.0
+          p `shouldBe` (P 1 1)
 
       it "Should create a Point2D by adding a Vector2D to a Point2D" $
         let
@@ -48,16 +46,14 @@ spec = do
           v = V 1.0 2.0
           p' = p .-> v
         in do
-          x p' `shouldBe` 3.0
-          y p' `shouldBe` 4.0
+          p' `shouldBe` (P 3 4)
 
       it "Should create a Gloss Point from a Point2D" $
         let
           p = P 3.0 4.0
-          (px, py) = toPoint p
+          p' = toPoint p
         in do
-          px `shouldBe` 3.0
-          py `shouldBe` 4.0
+          p' `shouldBe` (3, 4)
 
       it "With geoMap it should translate a Point2D" $
         let
@@ -65,8 +61,7 @@ spec = do
           t = translation 5.0 2.0
           p' = geoMap t p
         in do
-          x p' `shouldBe` 6.0
-          y p' `shouldBe` 3.0
+          p' `shouldBe` (P 6 3)
 
       it "With geoMap it should rotate a Point2D" $
         let
@@ -74,8 +69,7 @@ spec = do
           t = rotation (pi/2)
           p' = geoMap t p
         in do
-          truncate' (x p') 4 `shouldBe` (-1.0000)
-          truncate' (y p') 4 `shouldBe` 1.0000
+          p' `shouldBe` (P (-1) 1)
 
       it "With geoMap it should scale a Point2D" $
         let
@@ -83,8 +77,7 @@ spec = do
           t = scale 2.0 3.5
           p' = geoMap t p
         in do
-          truncate' (x p') 4 `shouldBe` 2.0
-          truncate' (y p') 4 `shouldBe` 3.5
+          p' `shouldBe` (P 2 3.5)
 
       it "With geoMapBack it should translate a Point2D" $
         let
@@ -92,8 +85,7 @@ spec = do
           t = translation 5.0 2.0
           p' = geoMapBack t p
         in do
-          x p' `shouldBe` 1.0
-          y p' `shouldBe` 1.0
+          p' `shouldBe` (P 1 1)
 
       it "With geoMapBack it should rotate a Point2D" $
         let
@@ -101,8 +93,7 @@ spec = do
           t = rotation (pi/2)
           p' = geoMapBack t p
         in do
-          truncate' (x p') 4 `shouldBe` 1.0
-          truncate' (y p') 4 `shouldBe` 1.0
+          p' `shouldBe` (P 1 1)
 
       it "With geoMapBack it should scale a Point2D" $
         let
@@ -110,5 +101,4 @@ spec = do
           t = scale 2.0 3.5
           p' = geoMapBack t p
         in do
-          truncate' (x p') 4 `shouldBe` 1.0
-          truncate' (y p') 4 `shouldBe` 1.0
+          p' `shouldBe` (P 1 1)
