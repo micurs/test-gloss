@@ -14,6 +14,7 @@ module Physics
   , distanceSq
   , collideParticles
   , geoMapParticle
+  , geoMapCircle
   , alignedP2CBounce
   , module Physics.Circle
   , module Physics.Wall
@@ -53,19 +54,23 @@ addParticle2Sys (ParticleSys pl) p = ParticleSys (p : pl)
 gravityAcceleration :: Vector2D
 gravityAcceleration = V 0 (-980.0)
 
+-- Compute the new position given a time delta, a velocity and a starting position
 movePos :: Double -> Velocity -> Point2D -> Point2D
 movePos tm v p = p .-> (tm .> v)
 
+-- Compute the distance between two particles
 distance :: Particle -> Particle -> Double
 distance p1 p2 = vLength v
   where
     v = (position p1) `minus` (position p2) :: Vector2D
 
+-- Compute the distance square between two particles
 distanceSq:: Particle -> Particle -> Double
 distanceSq p1 p2 = vLengthSq v
   where
     v = (position p1) `minus` (position p2) :: Vector2D
 
+-- Reduce a velocity because of friction
 particleFriction :: Velocity -> Velocity
 particleFriction (V vx vy) =
     V ( if (abs vx)> 0.01 then vx*friction else 0)
@@ -103,13 +108,36 @@ collideWithin d r p1 p2
     (P p1x p1y) = p1
     (P p2x p2y) = p2
 
+
+-- bounce a particle into a wall
+bounce :: Wall -> Particle -> Particle
+bounce w p
+  | or [ vy >= 0
+       , pyTop <= 0
+       , pyBottom > 0
+       , px< (-size) || px>size
+       ] = p
+  | otherwise = let
+        f = wallFriction w
+      in p { position = P px (r-1)
+           , velocity = frictionY f $ V vx (-vy)
+        }
+  where
+    size = (wallDim w) / 2
+    r = mass p / 2
+    (V vx vy) = velocity p
+    (P px py) = position p
+    pyBottom = py - r
+    pyTop = py + r
+
+
 -- Bounce against a horizontal wall position in 0,0 and facing UP
 -- the X axis along the wall and and the Y axis perpendicular and coming out of the wall
-bounce ::  Wall                             -- The wall to bounce against
+bounce2 ::  Wall                             -- The wall to bounce against
         -> Double                           -- The radius of the circle bouncing
         -> (Velocity, Point2D, Point2D)     -- Velocity, Original Position and New (potential) Position of the circle
         -> (Velocity, Point2D, Point2D)     -- New Velocity, original position (unchanged) and New Position after the bounce!
-bounce wall r (vel, oldP, newP)
+bounce2 wall r (vel, oldP, newP)
   | or [ vy >= 0.0
         , newPTy<0 && oldPTy<0
         , newPx>size && oldPx>size
@@ -138,14 +166,24 @@ bounce wall r (vel, oldP, newP)
 -- collX = oldPBy - (oldPx - newPx) / (oldPBy - newPBy) * oldPBy -- Collision point
 -- | vy <=0 && vy >= -1 && newPBy < 0 = ( (V vx 0), oldP, (P oldPx r ) )
 
-geoMapParticle :: Frame -> Particle -> Particle
+-- Transform a particle with a given transformation
+geoMapParticle :: Transformation -> Particle -> Particle
 geoMapParticle f p = p { position = geoMap f $ position p
                        , velocity = geoMap f $ velocity p
                        }
 
-geoMapCoupleParticle :: Frame -> (Particle, Particle) -> (Particle, Particle)
-geoMapCoupleParticle f (p1, p2) = (geoMapParticle f p1, geoMapParticle f p2)
+-- Transform a circle with a given transformation
+geoMapCircle :: Transformation -> Circle -> Circle
+geoMapCircle t c =
+    createCircle (radius c) (geoMap t (center c))
 
+
+-- Transform a pair of particles with a given transformation
+geoMapCoupleParticle :: Transformation -> (Particle, Particle) -> (Particle, Particle)
+geoMapCoupleParticle t (p1, p2) = (geoMapParticle t p1, geoMapParticle t p2)
+
+
+-- Collide a particle against a circle (assuming they are aligned with their center on the X axes)
 alignedP2CBounce :: (Particle, Circle) -> Particle
 alignedP2CBounce (p,c)
   | dc > md = p
@@ -193,17 +231,21 @@ alignedP2PBounce (p1, p2) =
     v1x' = v1x*(m1-m2)/tm + v2x*(2*m2)/tm
     v2x' = v1x*(2*m1)/tm + v2x*(m2-m1)/tm
 
-
+-- Collide 2 particles against each other
+-- This function transform the particles into a reference frame with the X axes
+-- passing through the center of both particles and the center of the first particle
+-- being on (0,0)
 p2pBounce :: Particle -> Particle -> (Particle, Particle)
 p2pBounce p1 p2 =
-    geoMapCoupleParticle toGlobalFrame $ alignedP2PBounce lp12
+    toGlobalFrame $ alignedP2PBounce lp12
   where
     v12 = (position p2) `minus` (position p1)
     pc = (position p1) .-> (0.5 .> v12)
     frameXaxe = (unitVector2D v12)
-    toLocalFrame = frame pc frameXaxe
-    toGlobalFrame = invert toLocalFrame
-    lp12 = geoMapCoupleParticle toLocalFrame (p1, p2)
+    ft = frameTransformation $ frame pc frameXaxe
+    toLocalFrame = geoMapCoupleParticle ft
+    toGlobalFrame = geoMapCoupleParticle (invert ft)
+    lp12 = toLocalFrame (p1, p2)
 
 
 bounceIfColliding :: Particle -> Particle -> (Particle, Particle)

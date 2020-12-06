@@ -88,3 +88,19 @@ instance Position Point2D where
     where
       dx = x d
       dy = y d
+
+-- Eq implementation for Point2D, Vector2D and UnitVector2D
+
+eqToll = 0.000001
+
+instance Eq Point2D where
+  (==) (P x1 y1) (P x2 y2) =
+    abs (x1-x2) < eqToll && abs (y1-y2) < eqToll
+
+instance Eq Vector2D where
+  (==) (V x1 y1) (V x2 y2) =
+    abs (x1-x2) < eqToll && abs (y1-y2) < eqToll
+
+instance Eq UnitVector2D where
+  (==) (UV x1 y1) (UV x2 y2) =
+    abs (x1-x2) < eqToll && abs (y1-y2) < eqToll

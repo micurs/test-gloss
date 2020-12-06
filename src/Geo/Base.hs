@@ -21,9 +21,9 @@ import Graphics.Gloss
 
 -- ============================================================================
 
-data Vector2D = V Double Double deriving (Show, Eq)
-data UnitVector2D = UV Double Double deriving (Show, Eq)
-data Point2D = P Double Double deriving (Show, Eq)
+data Vector2D = V Double Double deriving (Show)
+data UnitVector2D = UV Double Double deriving (Show)
+data Point2D = P Double Double deriving (Show)
 
 
 -- ========================== Point2D =========================================
