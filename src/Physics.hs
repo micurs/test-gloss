@@ -52,7 +52,7 @@ addParticle2Sys :: ParticleSys -> Particle -> ParticleSys
 addParticle2Sys (ParticleSys pl) p = ParticleSys (p : pl)
 
 gravityAcceleration :: Vector2D
-gravityAcceleration = V 0 (-980.0)
+gravityAcceleration = V 0 (-200.0)
 
 -- Compute the new position given a time delta, a velocity and a starting position
 movePos :: Double -> Velocity -> Point2D -> Point2D
@@ -73,8 +73,8 @@ distanceSq p1 p2 = vLengthSq v
 -- Reduce a velocity because of friction
 particleFriction :: Velocity -> Velocity
 particleFriction (V vx vy) =
-    V ( if (abs vx)> 0.01 then vx*friction else 0)
-      ( if (abs vy)> 0.01 then vy*friction else 0)
+    V ( if (abs vx)> 0.05 then vx*friction else 0)
+      ( if (abs vy)> 0.05 then vy*friction else 0)
   where
     friction = 1.0
 

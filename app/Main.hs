@@ -90,7 +90,7 @@ c3 = createCircle 70 (P 200 420)
 
 initialState :: StdGen -> GameState
 initialState g = Game
-  { randomVels = ((randomRs ((-300.0), 300.0) g), (randomRs (150.0, 1000.0) g))
+  { randomVels = ((randomRs ((-200.0), 200.0) g), (randomRs (150.0, 800.0) g))
   , particles = ParticleSys
     [ ]
   , obstructions =
@@ -242,8 +242,8 @@ updatePipe :: Double -> [Wall] -> [Circle] -> [Particle] -> [Particle]
 updatePipe tm walls circles
     = map (updatePos tm)
     . collideParticles
-    . map ( (updateParticleAgainstWalls tm walls)
-          . (updateParticleAgainstCircles tm circles)
+    . map ( (updateParticleAgainstCircles tm circles)
+          . (updateParticleAgainstWalls tm walls)
           . (updateVelocity tm)
           . (gravity tm)
           . (friction tm)
