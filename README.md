@@ -2,11 +2,10 @@
 
 ## Particle collisions
 
-A first test using Haskell and the Gloss library
+A first test using Haskell and the Gloss library.
+To generate a particle press the cursor UP key.
 
-<center>
-  <img src="haskell-gloss.gif" width="340" height="430" style="margin: 1rem auto" />
-</center>
+<img src="haskell-gloss.gif" width="340" height="430" style="margin: 1rem 8rem" />
 
 ## Build and run
 
